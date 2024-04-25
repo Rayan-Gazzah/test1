@@ -1,39 +1,52 @@
 name: Pipeline
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
+
 env:
   APPLICATION_NAME: Flaskapp
   REGISTRY: ghcr.io
   IMAGE_NAME: Rayan-Gazzah/devops-labs-flask-app
+
 jobs:
   lint:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Setup Python environment
-      uses: actions/setup-python@v4
-      with:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python environment
+        uses: actions/setup-python@v2
+        with:
           python-version: "3.10"
-    - name: Install requirements
-      run: pip install --quiet --requirement requirements.txt
-    - name: Lint code
-      run: |
-        flake8 --ignore=E501,E231 *.py
-        pylint--disable=C0301 --disable=C0326 test_app.py
-    - name: Run unit tests
-      run: python -m unittest --verbose --failfast 
+
+      - name: Install requirements
+        run: pip install --quiet --requirement requirements.txt
+
+      - name: Lint code
+        run: |
+          flake8 --ignore=E501,E231 *.py
+          pylint --disable=C0301 --disable=C0326 test_app.py
+
+      - name: Run unit tests
+        run: python -m unittest --verbose --failfast 
+
   Docker:
     name: Publish Docker Image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
       - name: Login to the Container registry
         uses: docker/login-action@v2
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v4
@@ -44,12 +57,14 @@ jobs:
             type=ref,event=pr
             type=match,pattern=(.*)
             type=ref,event=tag
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
           context: .
           push: true
-          Tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
       - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
+        run: echo ${{ steps.meta.outputs.digest }}
